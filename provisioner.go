@@ -29,7 +29,8 @@ const (
 const (
 	KeyNode = "kubernetes.io/hostname"
 
-	NodeDefaultNonListedNodes = "DEFAULT_PATH_FOR_NON_LISTED_NODES"
+	NodeDefaultNonListedNodes     = "DEFAULT_PATH_FOR_NON_LISTED_NODES"
+	SpecifiedPresistentVolumePath = "pvc.onecloud.yunion.io/pv-path"
 )
 
 var (
@@ -176,12 +177,19 @@ func (p *LocalPathProvisioner) Provision(opts pvController.VolumeOptions) (*v1.P
 		return nil, fmt.Errorf("configuration error, no node was specified")
 	}
 
-	basePath, err := p.getRandomPathOnNode(node.Name)
-	if err != nil {
-		return nil, err
-	}
 	name := opts.PVName
-	path := filepath.Join(basePath, name)
+
+	var path string
+	if pvPath, ok := pvc.Annotations[SpecifiedPresistentVolumePath]; ok {
+		path = pvPath
+	} else {
+		basePath, err := p.getRandomPathOnNode(node.Name)
+		if err != nil {
+			return nil, err
+		}
+		path = filepath.Join(basePath, name)
+	}
+
 	logrus.Infof("Creating volume %v at %v:%v", name, node.Name, path)
 
 	createCmdsForPath := []string{
